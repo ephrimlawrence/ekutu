@@ -1,0 +1,26 @@
+{
+  "name": "ekutu",
+  "version": "1.0.0",
+  "description": "Export json to excel",
+  "main": "lib/index.js",
+  "types": "lib/**/*.d.ts",
+  "files": ["lib/**/*"],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build" : "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ephrimlawrence/ekutu.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ephrimlawrence/ekutu/issues"
+  },
+  "homepage": "https://github.com/ephrimlawrence/ekutu#readme",
+  "devDependencies": {
+    "typescript": "^4.9.4"
+  }
+}
