@@ -4,10 +4,12 @@
   "description": "Export json to excel",
   "main": "lib/index.js",
   "types": "lib/**/*.d.ts",
-  "files": ["lib/**/*"],
+  "files": [
+    "lib/**/*"
+  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build" : "tsc"
+    "build": "tsc"
   },
   "repository": {
     "type": "git",
@@ -21,6 +23,11 @@
   },
   "homepage": "https://github.com/ephrimlawrence/ekutu#readme",
   "devDependencies": {
+    "@types/lodash": "^4.14.191",
     "typescript": "^4.9.4"
+  },
+  "dependencies": {
+    "exceljs": "^4.3.0",
+    "lodash": "^4.17.21"
   }
 }
