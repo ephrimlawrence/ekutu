@@ -15,8 +15,15 @@ export class JsonToExcel {
       opts.data = [opts.data];
     }
 
+    const workbook = opts.workbook ?? new Workbook();
+    if (opts.workbook == null) {
+      workbook.created = new Date();
+      workbook.modified = new Date();
+      workbook.lastPrinted = new Date();
+    }
+
     if (opts.data.length == 0) {
-      throw new Error('Data to be exported must have at least 1 item');
+      return workbook;
     }
 
     const headers = this._generateHeaderRow({
@@ -24,6 +31,7 @@ export class JsonToExcel {
       data: opts.data,
       excludeFields: opts.excludeFields ?? [],
     });
+
     const transformedHeaders = this._transformHeadersForExport(headers)
       .filter((i) => i.hidden == false)
       .map((i) => {
@@ -34,15 +42,7 @@ export class JsonToExcel {
         };
       });
 
-    const workbook = opts.workbook ?? new Workbook();
-    if (opts.workbook == null) {
-      workbook.creator = 'Insurerity Digital';
-      workbook.created = new Date(1985, 8, 30);
-      workbook.modified = new Date();
-      workbook.lastPrinted = new Date(2016, 9, 27);
-    }
-
-    // Add a workbook
+    // Add a worksheet
     const worksheet = opts.worksheet ?? workbook.addWorksheet('Sheet 1');
 
     // Add column headers and define column keys and widths
@@ -64,7 +64,7 @@ export class JsonToExcel {
   }
 
   private createRow(opts: { item: any; headers: HeaderRow[] }): any {
-    let row:any = {};
+    let row: any = {};
 
     for (const k of opts.headers) {
       const value = opts.item[k.id];
@@ -75,7 +75,7 @@ export class JsonToExcel {
 
       const type = this._getValueType(value);
       if (type == Array && k.sub != null && Array.isArray(k.sub)) {
-        const resp = value.flatMap((i:any) =>
+        const resp = value.flatMap((i: any) =>
           this.createRow({
             item: i,
             headers: k.sub as HeaderRow[],
@@ -109,7 +109,7 @@ export class JsonToExcel {
   }> {
     const data = Array.isArray(headers) ? headers : [headers];
 
-    return data.flatMap((i:any) => {
+    return data.flatMap((i: any) => {
       if (i.sub != null) {
         return this._transformHeadersForExport(i.sub);
       }
@@ -126,9 +126,10 @@ export class JsonToExcel {
     data: any[];
     excludeFields: string[];
   }): Array<HeaderRow> {
-    const headers: Array<HeaderRow> = [];
+    const headers: Array<HeaderRow> = [],
+      { data, excludeFields } = opts;
 
-    opts.data.forEach((item) => {
+    data.forEach((item) => {
       const keys = sortBy(Object.keys(item));
 
       for (const k of keys) {
@@ -144,14 +145,14 @@ export class JsonToExcel {
         }
 
         const index = headers.findIndex((i) => i.id == k);
-        const header = new HeaderRow();
         const value = item[k];
-        const type = this._getValueType(value);
+        const valueType = this._getValueType(value);
 
+        const header = new HeaderRow();
         header.id = k;
         header.value = startCase(k);
 
-        if (type == Object) {
+        if (valueType == Object) {
           header.sub = this._generateHeaderRow({
             root: _test,
             data: [value],
@@ -159,8 +160,8 @@ export class JsonToExcel {
           }).map((v, index) => {
             v.value = `${header.value} ${index + 1} - ${v.value}`;
             return v;
-          })[0];
-        } else if (type == Array) {
+          });
+        } else if (valueType == Array) {
           const subCount = ((header.sub as HeaderRow[]) ?? []).length;
 
           if (header.sub == null || value.length > subCount) {
@@ -176,7 +177,7 @@ export class JsonToExcel {
         }
 
         header.type = this._getValueType(value);
-        header.hidden = type == Object || type == Array || type == null;
+        header.hidden = valueType == Object || valueType == Array || valueType == null;
 
         if (index > -1) {
           headers[index] = header;
