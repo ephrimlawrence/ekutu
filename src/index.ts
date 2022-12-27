@@ -1,5 +1,5 @@
 import { Workbook, Worksheet } from 'exceljs';
-import { flatten, sortBy, startCase } from 'lodash';
+import { flatten, head, sortBy, startCase, unionBy } from 'lodash';
 import { tmpdir } from 'os';
 import { HeaderRow, ValueType } from './types';
 
@@ -22,6 +22,7 @@ export class JsonToExcel {
       workbook.lastPrinted = new Date();
     }
 
+    // If no data is provided or is empty, exit immediately
     if (opts.data.length == 0) {
       return workbook;
     }
@@ -86,7 +87,7 @@ export class JsonToExcel {
         const resp = flatten(
           this.createRow({
             item: value,
-            headers: [k.sub as HeaderRow],
+            headers: Array.isArray(k.sub) ? k.sub : [k.sub as HeaderRow],
           }),
         );
         row = { ...row, ...resp };
@@ -133,32 +134,49 @@ export class JsonToExcel {
       const keys = sortBy(Object.keys(item));
 
       for (const k of keys) {
-        const _test = opts.root == '' ? k : `${opts.root}.${k}`;
-
-        if (opts.excludeFields.length > 0) {
+        // Build up a path to the key, e.g. 'foo.bar.baz'
+        // If the path exists in the excludeFields array, don't include it in the headers
+        const _keyPath = opts.root == '' ? k : `${opts.root}.${k}`;
+        if (excludeFields.length > 0) {
           if (
-            opts.excludeFields?.indexOf(k) > -1 ||
-            opts.excludeFields?.indexOf(_test) > -1
+            excludeFields?.indexOf(k) > -1 ||
+            excludeFields?.indexOf(_keyPath) > -1
           ) {
             continue;
           }
         }
 
-        const index = headers.findIndex((i) => i.id == k);
         const value = item[k];
         const valueType = this._getValueType(value);
 
-        const header = new HeaderRow();
-        header.id = k;
-        header.value = startCase(k);
+        let header = new HeaderRow();
+
+        const existingHeaderIndex = headers.findIndex((i) => i.id == k);
+        if (existingHeaderIndex > -1) {
+          header = headers[existingHeaderIndex];
+        } else {
+          header.id = k;
+          header.title = startCase(k);
+          header.type = valueType;
+          header.hidden = valueType == Object || valueType == Array || valueType == null;
+        }
+
 
         if (valueType == Object) {
-          header.sub = this._generateHeaderRow({
-            root: _test,
+          // TODO; chang data type to set
+          const subHeadings = this._generateHeaderRow({
+            root: _keyPath,
             data: [value],
-            excludeFields: opts.excludeFields,
-          }).map((v, index) => {
-            v.value = `${header.value} ${index + 1} - ${v.value}`;
+            excludeFields: excludeFields,
+          });
+          if (header.sub != null && Array.isArray(header.sub ?? [])) {
+            subHeadings.push(...(header.sub as HeaderRow[]));
+          } else if (header.sub != null) {
+            subHeadings.push(header.sub as HeaderRow);
+          }
+          header.sub = unionBy(subHeadings, (h) => h.id).map((v, index) => {
+            console.log(v);
+            v.title = `${header.title} ${index + 1} - ${v.title}`;
             return v;
           });
         } else if (valueType == Array) {
@@ -166,21 +184,18 @@ export class JsonToExcel {
 
           if (header.sub == null || value.length > subCount) {
             header.sub = this._generateHeaderRow({
-              root: _test,
+              root: _keyPath,
               data: value,
               excludeFields: opts.excludeFields,
             }).map((v, index) => {
-              v.value = `${header.value} ${index + 1} - ${v.value}`;
+              v.title = `${header.title} ${index + 1} - ${v.title}`;
               return v;
             });
           }
         }
 
-        header.type = this._getValueType(value);
-        header.hidden = valueType == Object || valueType == Array || valueType == null;
-
-        if (index > -1) {
-          headers[index] = header;
+        if (existingHeaderIndex > -1) {
+          headers[existingHeaderIndex] = header;
         } else {
           headers.push(header);
         }
@@ -198,6 +213,7 @@ export class JsonToExcel {
     if (Array.isArray(value)) {
       return Array;
     }
+
     if (value instanceof Date) {
       return Date;
     }

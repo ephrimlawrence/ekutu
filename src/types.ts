@@ -4,7 +4,7 @@ export class HeaderRow {
     /**
      * The title of the header (as will be shown in excel)
      */
-    value!: string;
+    title!: string;
 
     id!: string;
     type?: ValueType;
