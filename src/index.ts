@@ -3,6 +3,7 @@ import { flatten, head, sortBy, startCase, unionBy } from 'lodash';
 import { tmpdir } from 'os';
 import { HeaderRow, ValueType } from './types';
 
+// TODO: add support for array of objects
 
 export class JsonToExcel {
   export(opts: {
@@ -45,8 +46,6 @@ export class JsonToExcel {
         };
       });
 
-    // console.log(transformedHeaders);
-
     // Add a worksheet
     const worksheet = opts.worksheet ?? workbook.addWorksheet('Sheet 1');
 
@@ -56,13 +55,7 @@ export class JsonToExcel {
     worksheet.columns = transformedHeaders;
 
     opts.data.forEach((i) => {
-      // console.log(i)
-      console.log(i)
-
       const row = this.createRow({ item: i, headers: headerRows, root: '' });
-
-      console.log("done")
-      console.log(row)
 
       worksheet.addRow(row);
     });
@@ -123,7 +116,6 @@ export class JsonToExcel {
       }
     }
 
-    console.log(row)
     return row;
   }
 
@@ -160,7 +152,7 @@ export class JsonToExcel {
     const headers: Array<HeaderRow> = [],
       { data, excludeFields } = opts;
 
-    data.forEach((item) => {
+    for (const item of data) {
       const keys = sortBy(Object.keys(item));
 
       for (const k of keys) {
@@ -230,7 +222,7 @@ export class JsonToExcel {
           headers.push(header);
         }
       }
-    });
+    }
 
     return headers;
   }
