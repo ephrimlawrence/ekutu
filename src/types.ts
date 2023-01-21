@@ -7,7 +7,25 @@ export class HeaderRow {
     title!: string;
 
     id!: string;
+    path!: string;
     type?: ValueType;
     sub?: HeaderRow | HeaderRow[];
     hidden: boolean = false;
+
+   get isNestedPath() {
+        return this.path.includes(".");
+    }
+
+    getValueByPath(item: any, route: string): any {
+        const path = route.split(".");
+        let value = item;
+
+        for (const p of path) {
+            value = value[p];
+
+            if(value == null) return null;
+        }
+
+        return value;
+    }
 }
