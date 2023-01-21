@@ -27,22 +27,25 @@ export class JsonToExcel {
       return workbook;
     }
 
-    const headerRows = this._generateHeaderRow({
+    const headerRows = this.generateHeaderRow({
       root: '',
       data: opts.data,
       excludeFields: opts.excludeFields ?? [],
     });
 
+    // console.log(headerRows);
 
     const transformedHeaders = this._transformHeadersForExport(headerRows)
       .filter((i) => i.hidden == false)
       .map((i) => {
         return {
           header: i.title as string,
-          key: i.id,
+          key: i.path,
           width: 20,
         };
       });
+
+    // console.log(transformedHeaders);
 
     // Add a worksheet
     const worksheet = opts.worksheet ?? workbook.addWorksheet('Sheet 1');
@@ -52,9 +55,17 @@ export class JsonToExcel {
     // apart from the column width, they will not be fully persisted.
     worksheet.columns = transformedHeaders;
 
-    opts.data.forEach((i) =>
-      worksheet.addRow(this.createRow({ item: i, headers: headerRows })),
-    );
+    opts.data.forEach((i) => {
+      // console.log(i)
+      console.log(i)
+
+      const row = this.createRow({ item: i, headers: headerRows, root: '' });
+
+      console.log("done")
+      console.log(row)
+
+      worksheet.addRow(row);
+    });
 
     return workbook;
   }
@@ -65,16 +76,26 @@ export class JsonToExcel {
     return path;
   }
 
-  private createRow(opts: { item: any; headers: HeaderRow[] }): any {
+  private createRow(opts: { item: any; headers: HeaderRow[], root: string; row?: any }) {
     const { item } = opts;
-    let row: any = {};
+    let row: any = opts.row ?? {}
 
     for (const k of opts.headers) {
-      const value = item[k.id];
+      let root = opts.root ?? '';
+
+      let value: any = undefined;
+      if (k.isNestedPath) {
+        value = k.getValueByPath(item, k.path.split(`${root}.`).join(''));
+      } else {
+        value = k.getValueByPath(item, k.path);
+      }
 
       if (value == null || value == undefined) {
-        row[k.id] = '';
+        row[k.path] = '';
+        continue;
       }
+
+      root = root == '' ? k.id : `${root}.${k.id}`
 
       const type = this._getValueType(value);
       if (type == Array && k.sub != null && Array.isArray(k.sub)) {
@@ -82,6 +103,8 @@ export class JsonToExcel {
           this.createRow({
             item: i,
             headers: k.sub as HeaderRow[],
+            root: root,
+            row: row,
           }),
         );
         row = { ...row, ...resp };
@@ -89,15 +112,18 @@ export class JsonToExcel {
         const resp = flatten(
           this.createRow({
             item: value,
+            root: root,
             headers: Array.isArray(k.sub) ? k.sub : [k.sub as HeaderRow],
+            row: row,
           }),
         );
         row = { ...row, ...resp };
       } else {
-        row[k.id] = value ?? '';
+        row[k.path] = value ?? '';
       }
     }
 
+    console.log(row)
     return row;
   }
 
@@ -108,6 +134,7 @@ export class JsonToExcel {
   private _transformHeadersForExport(headers: HeaderRow[] | HeaderRow): Array<{
     title: string;
     id: string;
+    path: string;
     hidden: boolean;
   }> {
     const data = Array.isArray(headers) ? headers : [headers];
@@ -120,11 +147,12 @@ export class JsonToExcel {
         title: i.title,
         hidden: i.hidden,
         id: i.id,
+        path: i.path,
       };
     });
   }
 
-  private _generateHeaderRow(opts: {
+  private generateHeaderRow(opts: {
     root: string;
     data: any[];
     excludeFields: string[];
@@ -153,11 +181,12 @@ export class JsonToExcel {
 
         let header = new HeaderRow();
 
-        const existingHeaderIndex = headers.findIndex((i) => i.id == k);
+        const existingHeaderIndex = headers.findIndex((i) => i.path == _keyPath);
         if (existingHeaderIndex > -1) {
           header = headers[existingHeaderIndex];
         } else {
           header.id = k;
+          header.path = _keyPath;
           header.title = startCase(k);
           header.type = valueType;
           header.hidden = valueType == Object || valueType == Array || valueType == null;
@@ -166,7 +195,7 @@ export class JsonToExcel {
 
         if (valueType == Object) {
           // TODO; chang data type to set
-          const subHeadings = this._generateHeaderRow({
+          const subHeadings = this.generateHeaderRow({
             root: _keyPath,
             data: [value],
             excludeFields: excludeFields,
@@ -184,7 +213,7 @@ export class JsonToExcel {
           const subCount = ((header.sub as HeaderRow[]) ?? []).length;
 
           if (header.sub == null || value.length > subCount) {
-            header.sub = this._generateHeaderRow({
+            header.sub = this.generateHeaderRow({
               root: _keyPath,
               data: value,
               excludeFields: opts.excludeFields,
