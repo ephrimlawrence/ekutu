@@ -27,17 +27,18 @@ export class JsonToExcel {
       return workbook;
     }
 
-    const headers = this._generateHeaderRow({
+    const headerRows = this._generateHeaderRow({
       root: '',
       data: opts.data,
       excludeFields: opts.excludeFields ?? [],
     });
 
-    const transformedHeaders = this._transformHeadersForExport(headers)
+
+    const transformedHeaders = this._transformHeadersForExport(headerRows)
       .filter((i) => i.hidden == false)
       .map((i) => {
         return {
-          header: i.value as string,
+          header: i.title as string,
           key: i.id,
           width: 20,
         };
@@ -52,7 +53,7 @@ export class JsonToExcel {
     worksheet.columns = transformedHeaders;
 
     opts.data.forEach((i) =>
-      worksheet.addRow(this.createRow({ item: i, headers })),
+      worksheet.addRow(this.createRow({ item: i, headers: headerRows })),
     );
 
     return workbook;
@@ -65,10 +66,11 @@ export class JsonToExcel {
   }
 
   private createRow(opts: { item: any; headers: HeaderRow[] }): any {
+    const { item } = opts;
     let row: any = {};
 
     for (const k of opts.headers) {
-      const value = opts.item[k.id];
+      const value = item[k.id];
 
       if (value == null || value == undefined) {
         row[k.id] = '';
@@ -104,7 +106,7 @@ export class JsonToExcel {
    *
    */
   private _transformHeadersForExport(headers: HeaderRow[] | HeaderRow): Array<{
-    value: ValueType;
+    title: string;
     id: string;
     hidden: boolean;
   }> {
@@ -115,7 +117,7 @@ export class JsonToExcel {
         return this._transformHeadersForExport(i.sub);
       }
       return {
-        value: i.value,
+        title: i.title,
         hidden: i.hidden,
         id: i.id,
       };
@@ -175,7 +177,6 @@ export class JsonToExcel {
             subHeadings.push(header.sub as HeaderRow);
           }
           header.sub = unionBy(subHeadings, (h) => h.id).map((v, index) => {
-            console.log(v);
             v.title = `${header.title} ${index + 1} - ${v.title}`;
             return v;
           });
